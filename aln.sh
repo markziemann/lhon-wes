@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+map(){
 # set some paths for software
 SKEWER=../sw/skewer #0.2.2
 BWA=../sw/bwa-mem2-2.2.1_x64-linux/bwa-mem2
@@ -8,10 +10,10 @@ SAMTOOLS=../sw/samtools-1.15.1/samtools
 # set reference genome
 REF=../ref/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa
 
-# a test dataset
-FQ1=test_R1_001.fastq.gz
+# a test dataset: test_R1_001.fastq.gz
+FQ1=$1
 FQ2=$(echo $FQ1 | sed 's/_R1_/_R2_/' )
-BASE=$echo $FQ1 | cut -d '_' -f1)
+BASE=$(echo $FQ1 | cut -d '_' -f1)
 
 $SKEWER -q 20 -t 16 $FQ1 $FQ2
 
@@ -19,11 +21,16 @@ FQ1T=$(echo $FQ1 | sed 's/.gz/-trimmed-pair1.fastq/')
 FQ2T=$(echo $FQ1 | sed 's/.gz/-trimmed-pair2.fastq/')
 
 CORES=$(echo $(nproc) | awk '{print$1/2}')
-$BWA mem -t $CORES $REF ../$FQ1T $FQ2T \
+$BWA mem -t $CORES $REF $FQ1T $FQ2T \
   | $SAMTOOLS fixmate -O bam,level=1 -m - - \
   | $SAMTOOLS sort -u -@10 \
   | $SAMTOOLS markdup -@8 --reference $REF - $BASE.cram
 rm $FQ1T $FQ2T
+samtools index $BASE.cram
+}
+
+export -f map
+parallel -j3 map ::: *_R1_001.fastq.gz
 
 # variant calling with deepvariant or strelka2
 # Barbitoff, Y.A., Abasov, R., Tvorogova, V.E. et al. Systematic benchmark of state-of-the-art variant calling pipelines identifies major factors affecting accuracy of coding sequence variant discovery. BMC Genomics 23, 155 (2022). https://doi.org/10.1186/s12864-022-08365-3
